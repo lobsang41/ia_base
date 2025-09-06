@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text-to-Voice Chat</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .chat-bubble {
+            max-width: 75%;
+            padding: 10px 15px;
+            margin: 5px 10px;
+            border-radius: 15px;
+            word-wrap: break-word;
+        }
+        .user-bubble {
+            background-color: #10B981; /* Verde */
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        .ai-bubble {
+            background-color: #E5E7EB; /* Gris claro */
+            color: black;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+        #chat-window::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chat-window::-webkit-scrollbar-thumb {
+            background-color: #D1D5DB;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+    <div class="container mx-auto p-4 max-w-3xl">
+        <h1 class="text-3xl font-bold text-center mb-6">Text-to-Voice Chat</h1>
+
+        <!-- Selector de Agente -->
+        <div class="mb-4">
+            <label for="agent-select" class="block text-sm font-medium text-gray-700">Selecciona Agente:</label>
+            <select id="agent-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                <option value="DefaultAgent">Default Agent</option>
+            </select>
+        </div>
+
+        <!-- Ventana de Chat -->
+        <div id="chat-window" class="bg-white border border-gray-300 rounded-lg h-96 overflow-y-auto mb-4 p-4 flex flex-col"></div>
+
+        <!-- Input y Botones -->
+        <div class="flex space-x-2">
+            <input type="text" id="message" placeholder="Escribe tu mensaje" class="flex-grow p-2 border border-gray-300 rounded-md">
+            <button onclick="sendMessage()" class="bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600">Enviar</button>
+            <button id="voice-btn" onclick="toggleVoice()" class="bg-gray-500 text-white p-2 rounded-md hover:bg-gray-600">🎤 Iniciar Grabación</button>
+            <button id="stop-btn" onclick="stopGeneration()" class="hidden bg-red-500 text-white p-2 rounded-md hover:bg-red-600">Detener</button>
+        </div>
+        <div id="transcription" class="mt-2 text-gray-600"></div>
+
+        <!-- Formulario para Crear Agente -->
+        <div class="mt-6 bg-white p-4 rounded-lg shadow">
+            <h2 class="text-xl font-semibold mb-4">Crear Nuevo Agente</h2>
+            <form id="create-agent-form" class="space-y-4">
+                <input type="text" id="agent-name" placeholder="Nombre del Agente" required class="w-full p-2 border border-gray-300 rounded-md">
+                <input type="text" id="agent-backend" placeholder="Backend (e.g., ollama, grok)" value="ollama" class="w-full p-2 border border-gray-300 rounded-md">
+                <input type="text" id="agent-model" placeholder="Modelo (e.g., phi3:mini)" value="phi3:mini" class="w-full p-2 border border-gray-300 rounded-md">
+                <textarea id="agent-prompt" placeholder="Prompt del Sistema" required class="w-full p-2 border border-gray-300 rounded-md">Eres un asistente útil.</textarea>
+                <input type="text" id="agent-forbidden" placeholder="Temas prohibidos (separados por coma)" class="w-full p-2 border border-gray-300 rounded-md">
+                <input type="text" id="agent-must-say-no" placeholder="Respuesta para temas desconocidos" value="No sé." class="w-full p-2 border border-gray-300 rounded-md">
+                <input type="number" id="agent-verbosity" placeholder="Nivel de verbosidad (1-3)" value="1" min="1" max="3" class="w-full p-2 border border-gray-300 rounded-md">
+                <input type="number" id="agent-max-words" placeholder="Máximo de palabras por respuesta" value="200" class="w-full p-2 border border-gray-300 rounded-md">
+                <input type="text" id="agent-language" placeholder="Idioma (e.g., en, es-MX)" value="es-MX" class="w-full p-2 border border-gray-300 rounded-md">
+                <textarea id="agent-extra-data" placeholder="Datos extras (JSON, e.g., {\"tts_backend\": \"web_speech\", \"tts_language\": \"es-MX\", \"tts_voice\": \"male\", \"tts_api_key\": \"\"})" class="w-full p-2 border border-gray-300 rounded-md">{"tts_backend": "web_speech", "tts_language": "es-MX", "tts_voice": "male", "tts_api_key": ""}</textarea>
+                <input type="text" id="agent-allowed-topics" placeholder="Temas permitidos (separados por coma)" value="programación,software,hardware" class="w-full p-2 border border-gray-300 rounded-md">
+                <label class="flex items-center">
+                    <input type="checkbox" id="agent-citation" checked class="mr-2"> Requerir citas
+                </label>
+                <button type="submit" class="bg-green-500 text-white p-2 rounded-md hover:bg-green-600">Crear Agente</button>
+            </form>
+        </div>
+
+        <!-- Formulario para Agregar Conocimiento -->
+        <div class="mt-6 bg-white p-4 rounded-lg shadow">
+            <h2 class="text-xl font-semibold mb-4">Agregar Conocimiento</h2>
+            <form id="add-knowledge-form" class="space-y-4">
+                <input type="text" id="knowledge-agent" placeholder="Nombre del Agente" required class="w-full p-2 border border-gray-300 rounded-md">
+                <textarea id="knowledge-fact" placeholder="Hecho" required class="w-full p-2 border border-gray-300 rounded-md"></textarea>
+                <input type="text" id="knowledge-source" placeholder="Fuente (opcional)" class="w-full p-2 border border-gray-300 rounded-md">
+                <button type="submit" class="bg-green-500 text-white p-2 rounded-md hover:bg-green-600">Agregar Conocimiento</button>
+            </form>
+        </div>
+
+        <script src="/static/chat.js"></script>
+        <script src="/static/stt.js"></script>
+    </div>
+</body>
+</html>

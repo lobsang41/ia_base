@@ -1,0 +1,1030 @@
+### File: opt.py
+import os
+import sys
+import re
+import ast
+SUPPORTED_EXTENSIONS = ['.py', '.js', '.jsx', '.ts', '.tsx', '.cs', '.java', '.c', '.cpp', '.h', '.hpp']
+VIRTUAL_ENV_DIRS = {'venv', 'env', '.venv'}
+def strip_python_comments(code):
+"""Strip comments and minify Python code using AST."""
+try:
+tree = ast.parse(code)
+minified = ast.unparse(tree)
+minified = '\n'.join((line for line in minified.splitlines() if line.strip()))
+minified = re.sub('^( {4})+', lambda m: '\t' * (len(m.group(0)) // 4), minified, flags=re.MULTILINE)
+return minified
+except SyntaxError as e:
+print(f'SyntaxError in Python file: {e}')
+lines = [line.split('#')[0].rstrip() for line in code.splitlines()]
+return '\n'.join((line for line in lines if line.strip()))
+def strip_c_style_comments(code):
+"""Strip C-style comments (// and /* */) and remove blank lines."""
+try:
+code = re.sub('/\\*[^*]*\\*+(?:[^/*][^*]*\\*+)*/', '', code, flags=re.DOTALL)
+code = re.sub('//.*', '', code)
+code = '\n'.join((line.strip() for line in code.splitlines() if line.strip()))
+code = re.sub(' +', ' ', code)
+return code
+except Exception as e:
+print(f'Error processing C-style file: {e}')
+return None
+def process_file(file_path):
+"""Process a single file based on its extension."""
+ext = os.path.splitext(file_path)[1].lower()
+if ext not in SUPPORTED_EXTENSIONS:
+return None
+try:
+with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+code = f.read()
+except Exception as e:
+print(f'Error reading file {file_path}: {e}')
+return None
+print(f'Processing file: {file_path}')
+if ext == '.py':
+optimized = strip_python_comments(code)
+else:
+optimized = strip_c_style_comments(code)
+if optimized:
+optimized = '\n'.join((line.strip() for line in optimized.splitlines() if line.strip()))
+return optimized
+return None
+def main(directory):
+output_file = 'optimized_source.txt'
+files_processed = 0
+try:
+with open(output_file, 'w', encoding='utf-8') as out_f:
+for root, dirs, files in os.walk(directory):
+dirs[:] = [d for d in dirs if d not in VIRTUAL_ENV_DIRS]
+for file in files:
+file_path = os.path.join(root, file)
+rel_path = os.path.relpath(file_path, directory)
+optimized = process_file(file_path)
+if optimized:
+out_f.write(f'### File: {rel_path}\n')
+out_f.write(optimized)
+out_f.write('\n\n')
+files_processed += 1
+if files_processed == 0:
+print('No source code files found with supported extensions.')
+else:
+print(f'Optimized source code written to {output_file}. Processed {files_processed} files.')
+except Exception as e:
+print(f'Error writing to {output_file}: {e}')
+if __name__ == '__main__':
+if len(sys.argv) != 2:
+print('Usage: python this_script.py /path/to/directory')
+sys.exit(1)
+directory = sys.argv[1]
+if not os.path.isdir(directory):
+print(f'Error: {directory} is not a valid directory')
+sys.exit(1)
+print(f'Scanning directory: {directory}')
+main(directory)
+
+### File: set.py
+import os
+import sys
+import subprocess
+def create_project_structure(project_name='MultiModuleChatProject', base_path='.'):
+project_path = os.path.join(base_path, project_name)
+os.makedirs(project_path, exist_ok=True)
+directories = ['src', 'src/core', 'src/modules', 'src/modules/ai', 'src/modules/arduino', 'src/modules/opencv', 'src/modules/tts_stt', 'frontend', 'frontend/static', 'frontend/templates', 'config', 'tests', 'docs', 'scripts', 'logs']
+for dir_path in directories:
+os.makedirs(os.path.join(project_path, dir_path), exist_ok=True)
+files_to_create = {os.path.join(project_path, 'README.md'): '# MultiModuleChatProject\n\nA cross-platform Python project for text-to-voice chat with extensible modules.\n\n## Setup\nRun `python scripts/setup.py` for initial setup.\n\n## Run\nUse `python src/main.py` to start the application.', os.path.join(project_path, '.gitignore'): 'venv/\n__pycache__/\n*.pyc\n*.pyo\n*.pyd\nlogs/\n.env', os.path.join(project_path, 'requirements.txt'): '# Core dependencies\nflask\npyttsx3  # For TTS (lightweight, offline, works on Linux)\nspeechrecognition  # For STT (pair with pyttsx3)\npyaudio  # For microphone access (required for STT)\nopencv-python  # For camera\npyserial  # For Arduino\npython-dotenv  # For config\n\n# Optional: AI integration\ngroq  # Example AI API (replace with your choice)\n\n# WebSockets for real-time chat\nflask-socketio', os.path.join(project_path, 'config/settings.py'): "# Configuration settings\nimport os\n\nBASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\nSECRET_KEY = 'your-secret-key'\n\n# TTS Engine\nTTS_ENGINE = 'pyttsx3'  # Recommended: lightweight, offline, Linux-compatible", os.path.join(project_path, 'src/main.py'): "# Main entry point for the application\nimport os\nimport sys\nfrom flask import Flask, render_template\nfrom dotenv import load_dotenv\n\nload_dotenv()  # Load environment variables\n\napp = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')\n\n@app.route('/')\ndef index():\n    return render_template('index.html')\n\nif __name__ == '__main__':\n    app.run(debug=True, host='0.0.0.0', port=5000)", os.path.join(project_path, 'frontend/templates/index.html'): '<!DOCTYPE html>\n<html>\n<head>\n    <title>Chat App</title>\n    <link rel="stylesheet" href="/static/style.css">\n</head>\n<body>\n    <h1>Text-to-Voice Chat</h1>\n    <div id="chat-window"></div>\n    <input type="text" id="message" placeholder="Type your message">\n    <button onclick="sendMessage()">Send</button>\n    <script src="/static/script.js"></script>\n</body>\n</html>', os.path.join(project_path, 'frontend/static/style.css'): 'body { font-family: Arial; }\n#chat-window { border: 1px solid #ccc; height: 300px; overflow-y: scroll; }', os.path.join(project_path, 'frontend/static/script.js'): "// Basic chat functionality\nfunction sendMessage() {\n    var msg = document.getElementById('message').value;\n    document.getElementById('chat-window').innerHTML += '<p>' + msg + '</p>';\n    // TODO: Integrate with backend for TTS, etc.\n    document.getElementById('message').value = '';\n}", os.path.join(project_path, 'src/modules/tts_stt/tts.py'): "import pyttsx3\n\nclass TTS:\n    def __init__(self):\n        self.engine = pyttsx3.init()\n        self.engine.setProperty('rate', 150)  # Speed\n        self.engine.setProperty('volume', 1.0)  # Volume\n\n    def speak(self, text):\n        self.engine.say(text)\n        self.engine.runAndWait()\n\n# Usage example:\n# tts = TTS()\n# tts.speak('Hello, this is text to speech.')", os.path.join(project_path, 'src/modules/tts_stt/stt.py'): 'import speech_recognition as sr\n\nclass STT:\n    def __init__(self):\n        self.recognizer = sr.Recognizer()\n\n    def listen(self):\n        with sr.Microphone() as source:\n            print("Listening...")\n            audio = self.recognizer.listen(source)\n            try:\n                return self.recognizer.recognize_google(audio)\n            except sr.UnknownValueError:\n                return "Could not understand audio"\n            except sr.RequestError:\n                return "API unavailable"\n\n# Usage example:\n# stt = STT()\n# text = stt.listen()\n# print(text)', os.path.join(project_path, 'scripts/run.sh'): '#!/bin/bash\n# Cross-platform run script\npython src/main.py', os.path.join(project_path, 'scripts/setup.py'): "# Additional setup script (e.g., install dependencies)\nimport subprocess\nimport sys\n\ndef install_requirements():\n    subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'])\n\nif __name__ == '__main__':\n    install_requirements()", os.path.join(project_path, 'docs/structure.md'): '# Project Structure\n- src/: Source code\n  - core/: Core logic\n  - modules/: Extensible modules (add new ones here)\n- frontend/: Web interface\n- config/: Settings\n- tests/: Tests\n- scripts/: Utilities\n- logs/: Logs\n\n## Extensibility\nAdd new modules in src/modules/ and import them in main.py as needed.\n\n## TTS Recommendation\npyttsx3: Lightweight, offline, uses espeak on Linux, easy to integrate. Install via pip.'}
+for file_path, content in files_to_create.items():
+with open(file_path, 'w') as f:
+f.write(content)
+if sys.platform != 'win32':
+os.chmod(os.path.join(project_path, 'scripts/run.sh'), 493)
+try:
+subprocess.run(['git', 'init', project_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+print('Git repository initialized.')
+except Exception:
+print('Git not found or error initializing repo. Skipping.')
+print(f"Project '{project_name}' created successfully at {project_path}.")
+print('To install dependencies, run: python scripts/setup.py')
+print('To start the app, run: python src/main.py (or ./scripts/run.sh on Unix)')
+print('\nKey Features:')
+print('- Cross-platform: Uses Python standard libs and os-agnostic code.')
+print('- Web Frontend: Basic Flask app with HTML/JS for chat interface.')
+print('- TTS/STT: pyttsx3 for TTS (lightweight, offline, Linux-compatible with espeak). speech_recognition for STT (uses microphone via pyaudio).')
+print('- Extensible: Add modules like Arduino (pyserial), OpenCV (camera access), AI (e.g., connect to Grok API).')
+print('- Linux Support: Microphone/camera via pyaudio/OpenCV; ensure permissions (e.g., add user to audio/video groups).')
+print('\nNext Steps: Implement chat logic in src/core/, integrate modules in main.py.')
+if __name__ == '__main__':
+create_project_structure()
+
+### File: test.py
+from modules.ai.agent import add_agent
+import json
+add_agent(name='FoodAgent2', backend='ollama', model='phi3:mini', system_prompt='Eres un asistente especializado en comida, recetas y nutrición.', forbidden_topics='política,religión,datos personales', must_say_no='No sé.', verbosity_level=1, require_citation=True, max_words_response=50, language='es-MX', extra_data=json.dumps({'tts_backend': 'elevenlabs', 'tts_language': 'es-MX', 'tts_voice': 'Rachel', 'tts_api_key': 'sk_c32b564b48f88160efb46ae678ff537d2506319e1a42a13e'}), allowed_topics='comida,recetas,ingredientes,nutrición,alimentos,cocina,platos,diets,salud alimentaria')
+
+### File: config\settings.py
+import os
+from dotenv import load_dotenv
+load_dotenv()
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key')
+TTS_ENGINE = 'pyttsx3'
+DB_PATH = os.path.join(BASE_DIR, 'knowledge.db')
+EMBEDDING_MODEL = 'all-MiniLM-L6-v2'
+DEFAULT_AGENT_NAME = 'DefaultAgent'
+DEFAULT_SYSTEM_PROMPT = '\nEres un asistente útil. Sigue las reglas del agente especificadas en la base de datos.\n'
+DEFAULT_BACKEND = 'ollama'
+DEFAULT_MODEL = 'phi3:mini'
+DEFAULT_MAX_WORDS_RESPONSE = 50
+DEFAULT_LANGUAGE = 'es-MX'
+DEFAULT_EXTRA_DATA = '{"tts_backend": "web_speech", "tts_language": "es-MX", "tts_voice": "male", "tts_api_key": ""}'
+
+### File: frontend\static\chat.js
+document.addEventListener('DOMContentLoaded', () => {
+fetch('/list_agents')
+.then(response => response.json())
+.then(data => {
+if (data.error) {
+console.error('Error en /list_agents:', data.error);
+return;
+}
+const select = document.getElementById('agent-select');
+select.innerHTML = '';
+data.agents.forEach(agent => {
+const option = document.createElement('option');
+option.value = agent;
+option.textContent = agent;
+select.appendChild(option);
+});
+})
+.catch(error => console.error('Error cargando agentes:', error));
+document.getElementById('create-agent-form').addEventListener('submit', (e) => {
+e.preventDefault();
+const data = {
+name: document.getElementById('agent-name').value,
+backend: document.getElementById('agent-backend').value,
+model: document.getElementById('agent-model').value,
+system_prompt: document.getElementById('agent-prompt').value,
+forbidden_topics: document.getElementById('agent-forbidden').value,
+must_say_no: document.getElementById('agent-must-say-no').value,
+verbosity_level: parseInt(document.getElementById('agent-verbosity').value),
+require_citation: document.getElementById('agent-citation').checked,
+max_words_response: parseInt(document.getElementById('agent-max-words').value),
+language: document.getElementById('agent-language').value,
+extra_data: document.getElementById('agent-extra-data').value,
+allowed_topics: document.getElementById('agent-allowed-topics').value
+};
+fetch('/create_agent', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(data)
+})
+.then(response => response.json())
+.then(data => {
+alert(data.status || data.error);
+fetch('/list_agents')
+.then(response => response.json())
+.then(data => {
+if (data.error) {
+console.error('Error en /list_agents:', data.error);
+return;
+}
+const select = document.getElementById('agent-select');
+select.innerHTML = '';
+data.agents.forEach(agent => {
+const option = document.createElement('option');
+option.value = agent;
+option.textContent = agent;
+select.appendChild(option);
+});
+});
+})
+.catch(error => console.error('Error creando agente:', error));
+});
+document.getElementById('add-knowledge-form').addEventListener('submit', (e) => {
+e.preventDefault();
+const data = {
+agent_name: document.getElementById('knowledge-agent').value,
+fact: document.getElementById('knowledge-fact').value,
+source: document.getElementById('knowledge-source').value
+};
+fetch('/add_knowledge', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(data)
+})
+.then(response => response.json())
+.then(data => alert(data.status || data.error))
+.catch(error => console.error('Error agregando conocimiento:', error));
+});
+});
+let abortController = null;
+let currentBotMsg = null;
+function sendMessage() {
+const msgInput = document.getElementById('message');
+const agentSelect = document.getElementById('agent-select');
+const msg = msgInput.value.trim();
+const agent_name = agentSelect ? agentSelect.value : 'DefaultAgent';
+if (!msg) return;
+const chatWindow = document.getElementById('chat-window');
+const userMsg = document.createElement('div');
+userMsg.classList.add('chat-bubble', 'user-bubble');
+userMsg.textContent = `Tú: ${msg}`;
+chatWindow.appendChild(userMsg);
+chatWindow.scrollTop = chatWindow.scrollHeight;
+document.getElementById('stop-btn').classList.remove('hidden');
+currentBotMsg = document.createElement('div');
+currentBotMsg.classList.add('chat-bubble', 'ai-bubble');
+currentBotMsg.textContent = `IA (${agent_name}): `;
+chatWindow.appendChild(currentBotMsg);
+chatWindow.scrollTop = chatWindow.scrollHeight;
+if (abortController) {
+abortController.abort();
+}
+abortController = new AbortController();
+fetch('/ai_response', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ query: msg, agent_name: agent_name }),
+signal: abortController.signal
+})
+.then(response => {
+if (!response.ok) {
+throw new Error(`HTTP error! status: ${response.status}`);
+}
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+let responseText = '';
+function readStream() {
+reader.read().then(({ done, value }) => {
+if (done) {
+if (!responseText) {
+currentBotMsg.textContent = `IA (${agent_name}): No tengo información sobre eso.`;
+}
+document.getElementById('stop-btn').classList.add('hidden');
+abortController = null;
+return;
+}
+const chunk = decoder.decode(value);
+const lines = chunk.split('\n').filter(line => line.trim());
+lines.forEach(line => {
+try {
+const data = JSON.parse(line);
+if (data.response) {
+responseText += data.response;
+currentBotMsg.textContent = `IA (${data.agent}): ${responseText}`;
+if (data.audio && data.audio.backend === 'elevenlabs') {
+const audio = new Audio(`data:${data.audio.mime_type};base64,${data.audio.audio}`);
+audio.play();
+} else if (data.audio && data.audio.backend === 'web_speech') {
+speakText(data.audio.text, data.audio.language, data.audio.voice);
+}
+} else if (data.chunk) {
+responseText += data.chunk;
+currentBotMsg.textContent = `IA (${data.agent}): ${responseText}`;
+if (data.audio && data.audio.backend === 'elevenlabs') {
+const audio = new Audio(`data:${data.audio.mime_type};base64,${data.audio.audio}`);
+audio.play();
+} else if (data.audio && data.audio.backend === 'web_speech') {
+speakText(data.audio.text, data.audio.language, data.audio.voice);
+}
+}
+} catch (e) {
+console.error('Error parseando chunk:', e, 'Chunk:', line);
+}
+});
+chatWindow.scrollTop = chatWindow.scrollHeight;
+readStream();
+}).catch(error => {
+if (error.name === 'AbortError') {
+currentBotMsg.textContent = `IA (${agent_name}): Consulta detenida.`;
+} else {
+console.error('Error:', error);
+currentBotMsg.textContent = `IA (${agent_name}): Error en la respuesta: ${error.message}`;
+}
+chatWindow.scrollTop = chatWindow.scrollHeight;
+document.getElementById('stop-btn').classList.add('hidden');
+abortController = null;
+});
+}
+readStream();
+})
+.catch(error => {
+if (error.name === 'AbortError') {
+currentBotMsg.textContent = `IA (${agent_name}): Consulta detenida.`;
+} else {
+console.error('Error:', error);
+currentBotMsg.textContent = `IA (${agent_name}): Error en la respuesta: ${error.message}`;
+}
+chatWindow.scrollTop = chatWindow.scrollHeight;
+document.getElementById('stop-btn').classList.add('hidden');
+abortController = null;
+});
+msgInput.value = '';
+}
+function speakText(text, language = 'es-MX', voice = 'male') {
+if (!text) return;
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = language;
+const voices = window.speechSynthesis.getVoices();
+const selectedVoice = voices.find(v => v.lang.includes(language) && v.name.toLowerCase().includes(voice.toLowerCase()));
+if (selectedVoice) {
+utterance.voice = selectedVoice;
+}
+window.speechSynthesis.speak(utterance);
+}
+window.speechSynthesis.onvoiceschanged = () => {
+window.speechSynthesis.getVoices();
+};
+function stopGeneration() {
+if (abortController) {
+abortController.abort();
+document.getElementById('stop-btn').classList.add('hidden');
+abortController = null;
+}
+}
+
+### File: frontend\static\script.js
+function sendMessage() {
+var msg = document.getElementById('message').value;
+document.getElementById('chat-window').innerHTML += '<p>' + msg + '</p>';
+document.getElementById('message').value = '';
+}
+
+### File: frontend\static\stt.js
+let recognition;
+let isRecording = false;
+function initSpeechRecognition() {
+if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
+alert('Tu navegador no soporta reconocimiento de voz. Prueba con Chrome o Edge.');
+return;
+}
+recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+recognition.lang = 'es-MX';
+recognition.interimResults = true;
+recognition.continuous = true;
+recognition.onresult = function(event) {
+let transcript = '';
+for (let i = event.resultIndex; i < event.results.length; ++i) {
+transcript += event.results[i][0].transcript + ' ';
+}
+transcript = transcript.trim();
+document.getElementById('transcription').innerText = transcript;
+if (!event.results[event.results.length - 1].isFinal) return;
+document.getElementById('message').value = transcript;
+sendMessage();
+};
+recognition.onerror = function(event) {
+console.error('Error en reconocimiento de voz:', event.error);
+toggleVoice();
+};
+recognition.onend = function() {
+isRecording = false;
+document.getElementById('voice-btn').classList.remove('recording');
+document.getElementById('voice-btn').innerText = '🎤 Iniciar Grabación';
+};
+}
+function toggleVoice() {
+if (!recognition) initSpeechRecognition();
+if (isRecording) {
+recognition.stop();
+document.getElementById('voice-btn').innerText = '🎤 Iniciar Grabación';
+} else {
+recognition.start();
+isRecording = true;
+document.getElementById('voice-btn').classList.add('recording');
+document.getElementById('voice-btn').innerText = '🔴 Detener Grabación';
+}
+}
+initSpeechRecognition();
+
+### File: frontend\static\tts.js
+function speakText(text, language = 'es-MX', voice = 'male') {
+if (!text) return;
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = language;
+const voices = window.speechSynthesis.getVoices();
+const selectedVoice = voices.find(v => v.lang.includes(language) && v.name.toLowerCase().includes(voice));
+if (selectedVoice) {
+utterance.voice = selectedVoice;
+}
+window.speechSynthesis.speak(utterance);
+}
+window.speechSynthesis.onvoiceschanged = () => {
+window.speechSynthesis.getVoices();
+};
+
+### File: MultiModuleChatProject\config\settings.py
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SECRET_KEY = 'your-secret-key'
+TTS_ENGINE = 'pyttsx3'
+
+### File: MultiModuleChatProject\frontend\static\chat.js
+function sendMessage() {
+const msgInput = document.getElementById('message');
+const msg = msgInput.value.trim();
+if (!msg) return;
+const chatWindow = document.getElementById('chat-window');
+const userMsg = document.createElement('div');
+userMsg.textContent = msg;
+chatWindow.appendChild(userMsg);
+chatWindow.scrollTop = chatWindow.scrollHeight;
+setTimeout(() => {
+const botMsg = document.createElement('div');
+botMsg.textContent = 'Echo: ' + msg;
+chatWindow.appendChild(botMsg);
+chatWindow.scrollTop = chatWindow.scrollHeight;
+}, 500);
+msgInput.value = '';
+}
+
+### File: MultiModuleChatProject\frontend\static\script.js
+function sendMessage() {
+var msg = document.getElementById('message').value;
+document.getElementById('chat-window').innerHTML += '<p>' + msg + '</p>';
+document.getElementById('message').value = '';
+}
+
+### File: MultiModuleChatProject\frontend\static\stt.js
+let recognition;
+let isRecording = false;
+function initSpeechRecognition() {
+if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
+alert('Your browser does not support speech recognition. Try Chrome or Edge.');
+return;
+}
+recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+recognition.lang = 'en-US';
+recognition.interimResults = true;
+recognition.continuous = true;
+recognition.onresult = function(event) {
+let transcript = '';
+for (let i = event.resultIndex; i < event.results.length; ++i) {
+transcript += event.results[i][0].transcript + ' ';
+}
+document.getElementById('transcription').innerText = transcript.trim();
+};
+recognition.onerror = function(event) {
+console.error('Speech recognition error', event.error);
+toggleVoice();
+};
+recognition.onend = function() {
+isRecording = false;
+document.getElementById('voice-btn').classList.remove('recording');
+document.getElementById('voice-btn').innerText = '🎤 Start Recording';
+};
+}
+function toggleVoice() {
+if (!recognition) initSpeechRecognition();
+if (isRecording) {
+recognition.stop();
+document.getElementById('voice-btn').innerText = '🎤 Start Recording';
+} else {
+recognition.start();
+isRecording = true;
+document.getElementById('voice-btn').classList.add('recording');
+document.getElementById('voice-btn').innerText = '🔴 Stop Recording';
+}
+}
+initSpeechRecognition();
+
+### File: MultiModuleChatProject\frontend\static\tts.js
+function speakText() {
+const text = document.getElementById('tts-text').value.trim();
+if (!text) return;
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = 'en-US';
+speechSynthesis.speak(utterance);
+}
+
+### File: MultiModuleChatProject\scripts\setup.py
+import subprocess
+import sys
+def install_requirements():
+subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'])
+if __name__ == '__main__':
+install_requirements()
+
+### File: MultiModuleChatProject\src\main.py
+import os
+import sys
+from flask import Flask, render_template
+from dotenv import load_dotenv
+load_dotenv()
+app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
+@app.route('/')
+def index():
+return render_template('index.html')
+if __name__ == '__main__':
+app.run(debug=True, host='0.0.0.0', port=5000)
+
+### File: MultiModuleChatProject\src\modules\tts_stt\stt.py
+import speech_recognition as sr
+class STT:
+def __init__(self):
+self.recognizer = sr.Recognizer()
+def listen(self):
+with sr.Microphone() as source:
+print('Listening...')
+audio = self.recognizer.listen(source)
+try:
+return self.recognizer.recognize_google(audio)
+except sr.UnknownValueError:
+return 'Could not understand audio'
+except sr.RequestError:
+return 'API unavailable'
+
+### File: MultiModuleChatProject\src\modules\tts_stt\tts.py
+import pyttsx3
+class TTS:
+def __init__(self):
+self.engine = pyttsx3.init()
+self.engine.setProperty('rate', 150)
+self.engine.setProperty('volume', 1.0)
+def speak(self, text):
+self.engine.say(text)
+self.engine.runAndWait()
+
+### File: scripts\init_db.py
+import sqlite3
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.settings import BASE_DIR
+DB_PATH = os.path.join(BASE_DIR, 'knowledge.db')
+def init_db():
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
+cursor.execute("\n    CREATE TABLE IF NOT EXISTS agents (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        name TEXT UNIQUE NOT NULL,\n        backend TEXT DEFAULT 'ollama',\n        model TEXT DEFAULT 'phi3:mini',\n        system_prompt TEXT NOT NULL,\n        forbidden_topics TEXT,\n        must_say_no TEXT DEFAULT 'No sé o No puedo responder sobre eso.',\n        verbosity_level INTEGER DEFAULT 1,\n        require_citation BOOLEAN DEFAULT TRUE,\n        max_words_response INTEGER DEFAULT 200,\n        language TEXT DEFAULT 'es-MX',\n        extra_data TEXT DEFAULT '{}',\n        allowed_topics TEXT DEFAULT ''  -- Palabras clave para temas permitidos (coma-separado)\n    )\n    ")
+cursor.execute('\n    CREATE TABLE IF NOT EXISTS knowledge (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        agent_id INTEGER NOT NULL,\n        fact TEXT NOT NULL,\n        source TEXT,\n        embedding BLOB,\n        FOREIGN KEY (agent_id) REFERENCES agents(id)\n    )\n    ')
+conn.commit()
+conn.close()
+print(f'DB inicializada en {DB_PATH}')
+if __name__ == '__main__':
+init_db()
+
+### File: scripts\setup.py
+import subprocess
+import sys
+def install_requirements():
+subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'])
+if __name__ == '__main__':
+install_requirements()
+
+### File: scripts\setup_agents.py
+import os
+import sys
+import json
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.modules.ai.agent import add_agent, add_knowledge
+from config.settings import DEFAULT_BACKEND, DEFAULT_MODEL, DEFAULT_SYSTEM_PROMPT, DEFAULT_MAX_WORDS_RESPONSE, DEFAULT_LANGUAGE, DEFAULT_EXTRA_DATA
+add_agent(name='TechAgent', backend=DEFAULT_BACKEND, model=DEFAULT_MODEL, system_prompt='Eres un experto en programación, software, hardware y tecnología. Responde EXCLUSIVAMENTE sobre temas de tecnología. Ignora cualquier pregunta que no esté relacionada con tecnología y responde con la frase configurada en must_say_no.', forbidden_topics='política,religión,datos personales,geografía,clima,historia,deportes,ciencia natural', must_say_no='Lo siento, solo puedo responder sobre temas de tecnología.', verbosity_level=2, require_citation=True, max_words_response=DEFAULT_MAX_WORDS_RESPONSE, language='es-MX', extra_data=json.dumps({'tts_backend': 'web_speech', 'tts_language': 'es-MX', 'tts_voice': 'male', 'tts_api_key': ''}), allowed_topics='programación,software,hardware,tecnología,computadora,sistema,aplicación,framework,python,flask,tts,stt,api,código,programa,desarrollo,internet,red,servidor,base de datos,sql,algoritmo,inteligencia artificial,navegador,chrome')
+add_knowledge('TechAgent', 'Flask es un framework web ligero para Python.', 'docs/flask.txt')
+add_knowledge('TechAgent', 'pyttsx3 se usa para TTS offline.', 'docs/pyttsx3.txt')
+add_knowledge('TechAgent', 'Chrome es un navegador web desarrollado por Google.', 'docs/chrome.txt')
+add_knowledge('TechAgent', 'SQL es un lenguaje de consulta estructurado para gestionar bases de datos relacionales.', 'docs/sql.txt')
+add_agent(name='FoodAgent', backend=DEFAULT_BACKEND, model=DEFAULT_MODEL, system_prompt='Eres un experto en comida, recetas y nutrición. Responde EXCLUSIVAMENTE sobre temas de comida.', forbidden_topics='política,religión,datos personales', must_say_no='Lo siento, solo puedo responder sobre temas de comida.', verbosity_level=2, require_citation=True, max_words_response=DEFAULT_MAX_WORDS_RESPONSE, language='es-MX', extra_data=json.dumps({'tts_backend': 'web_speech', 'tts_language': 'es-MX', 'tts_voice': 'female', 'tts_api_key': ''}), allowed_topics='comida,recetas,ingredientes,nutrición,alimentos,cocina,platos,diets,salud alimentaria')
+add_knowledge('FoodAgent', 'La pizza es un plato italiano con masa, salsa de tomate y queso.', 'docs/food.txt')
+add_agent(name='DefaultAgent', backend=DEFAULT_BACKEND, model=DEFAULT_MODEL, system_prompt='Eres un asistente general. Responde amigablemente sobre cualquier tema permitido.', forbidden_topics='datos personales', must_say_no='No tengo información sobre eso.', verbosity_level=1, require_citation=False, max_words_response=DEFAULT_MAX_WORDS_RESPONSE, language='es-MX', extra_data=json.dumps({'tts_backend': 'web_speech', 'tts_language': 'es-MX', 'tts_voice': 'male', 'tts_api_key': ''}), allowed_topics='')
+add_knowledge('DefaultAgent', 'El clima puede variar según la región.', 'docs/weather.txt')
+print('Agentes y conocimientos inicializados correctamente.')
+
+### File: src\main.py
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from flask import Flask
+from modules.ai.agent import AI_Agent
+from config.settings import SECRET_KEY
+from routes import register_routes
+app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
+app.config['SECRET_KEY'] = SECRET_KEY
+register_routes(app)
+if __name__ == '__main__':
+app.run(debug=True, host='0.0.0.0', port=5000)
+
+### File: src\routes.py
+from flask import Flask, render_template, request, jsonify, Response
+from modules.ai.agent import AI_Agent, add_agent, add_knowledge
+from modules.tts_stt.stt import STT
+from config.settings import DEFAULT_AGENT_NAME
+import json
+import logging
+import sqlite3
+import os
+logging.basicConfig(level=logging.DEBUG)
+def register_routes(app):
+stt = STT()
+@app.route('/')
+def index():
+"""Renderiza la página principal del chat."""
+return render_template('index.html')
+@app.route('/ai_response', methods=['POST'])
+def ai_response():
+"""Procesa un mensaje de chat y devuelve la respuesta del agente en streaming."""
+data = request.json
+query = data.get('query', '')
+agent_name = data.get('agent_name', DEFAULT_AGENT_NAME)
+try:
+agent = AI_Agent(agent_name)
+def generate():
+response_text = ''
+try:
+for item in agent.get_response_stream(query):
+if isinstance(item, dict) and 'chunk' in item:
+chunk = item['chunk']
+audio_data = item.get('audio')
+if chunk.strip():
+response_text += chunk
+yield (json.dumps({'response': chunk, 'audio': audio_data, 'agent': agent_name}) + '\n')
+else:
+response = item.get('response', 'No tengo información sobre eso.') if isinstance(item, dict) else item
+audio_data = item.get('audio') if isinstance(item, dict) else None
+yield (json.dumps({'response': response, 'audio': audio_data, 'agent': agent_name}) + '\n')
+return
+except Exception as e:
+logging.error(f'Error en generate: {str(e)}')
+yield (json.dumps({'response': f'Error en la respuesta: {str(e)}', 'agent': agent_name}) + '\n')
+return Response(generate(), mimetype='application/json')
+except Exception as e:
+logging.error(f'Error en ai_response: {str(e)}')
+return (jsonify({'response': f'Error en la respuesta: {str(e)}', 'agent': agent_name}), 500)
+@app.route('/tts', methods=['POST'])
+def tts_speak():
+"""Envía texto para reproducir con Web Speech en el frontend."""
+data = request.json
+text = data.get('text', '')
+language = data.get('language', 'es-MX')
+voice = data.get('voice', 'male')
+if not text:
+return (jsonify({'error': 'No se proporcionó texto'}), 400)
+return jsonify({'text': text, 'language': language, 'voice': voice})
+@app.route('/stt', methods=['POST'])
+def speech_to_text():
+"""Convierte voz a texto usando STT."""
+try:
+text = stt.listen()
+return jsonify({'text': text})
+except Exception as e:
+logging.error(f'Error en stt: {str(e)}')
+return (jsonify({'error': str(e)}), 500)
+@app.route('/create_agent', methods=['POST'])
+def create_agent():
+"""Crea un nuevo agente con configuración personalizada."""
+data = request.json
+try:
+add_agent(name=data.get('name', 'NewAgent'), backend=data.get('backend', 'ollama'), model=data.get('model', 'phi3:mini'), system_prompt=data.get('system_prompt', 'Eres un asistente útil.'), forbidden_topics=data.get('forbidden_topics', ''), must_say_no=data.get('must_say_no', 'No sé.'), verbosity_level=data.get('verbosity_level', 1), require_citation=data.get('require_citation', True), max_words_response=data.get('max_words_response', 200), language=data.get('language', 'es-MX'), extra_data=data.get('extra_data', '{}'), allowed_topics=data.get('allowed_topics', ''))
+return jsonify({'status': 'Agente creado exitosamente'})
+except Exception as e:
+logging.error(f'Error en create_agent: {str(e)}')
+return (jsonify({'error': str(e)}), 500)
+@app.route('/add_knowledge', methods=['POST'])
+def add_knowledge_route():
+"""Agrega un nuevo hecho a la base de conocimiento de un agente."""
+data = request.json
+try:
+add_knowledge(agent_name=data.get('agent_name', DEFAULT_AGENT_NAME), fact=data.get('fact', ''), source=data.get('source', 'unknown'))
+return jsonify({'status': 'Conocimiento agregado exitosamente'})
+except Exception as e:
+logging.error(f'Error en add_knowledge: {str(e)}')
+return (jsonify({'error': str(e)}), 500)
+@app.route('/list_agents', methods=['GET'])
+def list_agents():
+"""Devuelve una lista de agentes disponibles."""
+try:
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
+cursor.execute('SELECT name FROM agents')
+agents = [row[0] for row in cursor.fetchall()]
+conn.close()
+logging.debug(f'Agentes encontrados: {agents}')
+return jsonify({'agents': agents})
+except Exception as e:
+logging.error(f'Error en list_agents: {str(e)}')
+return (jsonify({'error': str(e)}), 500)
+
+### File: src\modules\ai\agent.py
+import sqlite3
+import json
+from langchain_openai import ChatOpenAI
+from langchain_community.llms import Ollama
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain.chains import RetrievalQA
+from langchain.schema import Document
+import os
+import re
+from config.settings import DB_PATH, EMBEDDING_MODEL, DEFAULT_AGENT_NAME, DEFAULT_SYSTEM_PROMPT, DEFAULT_BACKEND, DEFAULT_MODEL
+from modules.tts_stt.tts import TTS
+try:
+from langchain_groq import ChatGroq
+except ImportError:
+ChatGroq = None
+embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+class AI_Agent:
+def __init__(self, agent_name=DEFAULT_AGENT_NAME):
+self.agent_name = agent_name
+self.load_agent_config()
+self.load_knowledge()
+self.init_llm()
+self.init_chain()
+try:
+print(f'Importing TTS: {TTS}, type: {type(TTS)}')
+print(f'Initializing TTS with extra_data: {self.extra_data}')
+self.tts = TTS(tts_backend=self.extra_data.get('tts_backend', 'web_speech'), tts_language=self.extra_data.get('tts_language', 'es-MX'), tts_voice=self.extra_data.get('tts_voice', 'Rachel'), tts_api_key=self.extra_data.get('tts_api_key', ''), agent_name=self.agent_name)
+print(f'TTS inicializado para {self.agent_name} con backend: {self.extra_data.get('tts_backend')}')
+except Exception as e:
+print(f'Error inicializando TTS: {str(e)}')
+self.tts = None
+def load_agent_config(self):
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
+cursor.execute('SELECT * FROM agents WHERE name = ?', (self.agent_name,))
+agent_data = cursor.fetchone()
+conn.close()
+if agent_data:
+self.id, self.name, self.backend, self.model, self.system_prompt, self.forbidden_topics, self.must_say_no, self.verbosity_level, self.require_citation, self.max_words_response, self.language, self.extra_data, self.allowed_topics = agent_data
+self.forbidden_topics = self.forbidden_topics.split(',') if self.forbidden_topics else []
+self.allowed_topics = self.allowed_topics.split(',') if self.allowed_topics else []
+self.extra_data = json.loads(self.extra_data) if self.extra_data else {}
+print(f'Configuración del agente {self.name}: allowed_topics={self.allowed_topics}, forbidden_topics={self.forbidden_topics}')
+else:
+print(f'Agente {self.agent_name} no encontrado en la base de datos. Usando defaults.')
+self.backend = DEFAULT_BACKEND
+self.model = DEFAULT_MODEL
+self.system_prompt = DEFAULT_SYSTEM_PROMPT
+self.forbidden_topics = []
+self.allowed_topics = []
+self.must_say_no = 'No sé.'
+self.verbosity_level = 1
+self.require_citation = True
+self.max_words_response = 200
+self.language = 'es-MX'
+self.extra_data = {}
+def load_knowledge(self):
+try:
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
+cursor.execute('SELECT fact, source FROM knowledge WHERE agent_id = (SELECT id FROM agents WHERE name = ?)', (self.agent_name,))
+docs = [Document(page_content=fact, metadata={'source': source or 'unknown'}) for fact, source in cursor.fetchall()]
+conn.close()
+if docs:
+self.vectorstore = FAISS.from_documents(docs, embeddings)
+print(f'Conocimiento cargado para {self.agent_name}: {len(docs)} documentos')
+else:
+self.vectorstore = None
+print(f'No se encontró conocimiento para {self.agent_name}')
+except Exception as e:
+print(f'Error cargando conocimiento: {str(e)}')
+self.vectorstore = None
+def init_llm(self):
+try:
+if self.backend == 'openai':
+self.llm = ChatOpenAI(model=self.model, api_key=os.getenv('OPENAI_API_KEY'))
+elif self.backend == 'grok':
+if ChatGroq is None:
+raise ValueError('Backend "grok" no soportado: langchain_groq no está instalado.')
+self.llm = ChatGroq(model=self.model, api_key=os.getenv('GROK_API_KEY'))
+elif self.backend == 'ollama':
+self.llm = Ollama(model=self.model)
+else:
+raise ValueError('Backend no soportado')
+print(f'LLM inicializado: {self.backend}/{self.model}')
+except Exception as e:
+print(f'Error inicializando LLM: {str(e)}')
+raise
+def init_chain(self):
+try:
+prompt_str = f"{self.system_prompt}\nIMPORTANTE: Responde EXCLUSIVAMENTE sobre los temas permitidos. Si la consulta no está relacionada con estos temas o contiene temas prohibidos, responde ÚNICAMENTE con: '{{self.must_say_no}}'.\n"
+if self.forbidden_topics:
+prompt_str += f"Temas prohibidos: {', '.join(self.forbidden_topics)}. Responde con '{self.must_say_no}' si se menciona.\n"
+if self.allowed_topics:
+prompt_str += f'Temas permitidos: {', '.join(self.allowed_topics)}. Responde solo si la consulta se relaciona con estos temas.\n'
+if self.verbosity_level == 1:
+prompt_str += 'Sé conciso.\n'
+elif self.verbosity_level == 3:
+prompt_str += 'Sé detallado.\n'
+prompt_str += 'Contexto: {context}\n'
+self.prompt_template = ChatPromptTemplate.from_messages([('system', prompt_str), ('human', '{query}')])
+if self.vectorstore:
+self.chain = RetrievalQA.from_chain_type(llm=self.llm, chain_type='stuff', retriever=self.vectorstore.as_retriever(search_kwargs={'k': 3}), input_key='query', return_source_documents=True)
+else:
+self.chain = self.prompt_template | self.llm
+print(f'Chain inicializado para {self.agent_name}')
+except Exception as e:
+print(f'Error inicializando chain: {str(e)}')
+raise
+def is_topic_related(self, query):
+print(f'Verificando consulta: "{query}"')
+print(f'Temas permitidos: {self.allowed_topics}')
+print(f'Temas prohibidos: {self.forbidden_topics}')
+if not self.allowed_topics:
+print(f'No hay temas permitidos definidos para {self.agent_name}. Permitiendo consulta.')
+return True
+query_lower = query.lower().strip()
+query_clean = re.sub('[^\\w\\s]', '', query_lower)
+query_words = query_clean.split()
+print(f'Consulta limpia: "{query_clean}", Palabras: {query_words}')
+if len(query_words) < 2:
+print(f'Consulta "{query}" considerada vaga después de limpieza: {query_clean}')
+return False
+for keyword in self.allowed_topics:
+keyword_lower = keyword.lower().strip()
+print(f'Comparando con palabra clave: "{keyword_lower}"')
+if keyword_lower in query_lower or any((keyword_lower == word for word in query_words)):
+print(f'Consulta "{query}" coincide con tema permitido: {keyword}')
+return True
+print(f'Consulta "{query}" no relacionada con temas permitidos.')
+return False
+def get_response(self, query):
+if not self.is_topic_related(query):
+print(f'Consulta "{query}" no relacionada con temas permitidos. Retornando must_say_no.')
+return {'response': self.must_say_no}
+query_lower = query.lower().strip()
+for topic in self.forbidden_topics:
+if topic.lower() in query_lower or any((word in query_lower for word in topic.lower().split())):
+print(f'Consulta "{query}" contiene tema prohibido: {topic}. Retornando must_say_no.')
+return {'response': self.must_say_no}
+try:
+if self.vectorstore:
+result = self.chain.invoke({'query': query})
+response = result['result']
+if self.require_citation:
+sources = [doc.metadata['source'] for doc in result['source_documents']]
+query_clean = re.sub('[^\\w\\s]', '', query_lower)
+if not any((keyword.lower() in query_clean for keyword in self.allowed_topics)):
+print(f'Consulta "{query}" no relacionada con fuentes recuperadas. Retornando must_say_no.')
+return {'response': self.must_say_no}
+response += f'\nFuentes: {', '.join(sources)}'
+else:
+result = self.chain.invoke({'query': query, 'context': ''})
+response = result.content
+response = ' '.join(response.split()[:self.max_words_response])
+print(f'Respuesta generada: {response}')
+audio_data = None
+if self.tts:
+try:
+audio_data = self.tts.speak(response)
+except Exception as e:
+print(f'Error al procesar audio con TTS: {str(e)}')
+return {'response': response, 'audio': audio_data}
+except Exception as e:
+print(f'Error generando respuesta: {str(e)}')
+return {'response': self.must_say_no}
+def get_response_stream(self, query):
+if not self.is_topic_related(query):
+print(f'Consulta "{query}" no relacionada con temas permitidos. Retornando must_say_no.')
+yield {'response': self.must_say_no}
+return
+query_lower = query.lower().strip()
+for topic in self.forbidden_topics:
+if topic.lower() in query_lower or any((word in query_lower for word in topic.lower().split())):
+print(f'Consulta "{query}" contiene tema prohibido: {topic}. Retornando must_say_no.')
+yield {'response': self.must_say_no}
+return
+try:
+if self.vectorstore:
+result = self.chain.invoke({'query': query})
+response = result['result']
+if self.require_citation:
+sources = [doc.metadata['source'] for doc in result['source_documents']]
+query_clean = re.sub('[^\\w\\s]', '', query_lower)
+if not any((keyword.lower() in query_clean for keyword in self.allowed_topics)):
+print(f'Consulta "{query}" no relacionada con fuentes recuperadas. Retornando must_say_no.')
+yield {'response': self.must_say_no}
+return
+response += f'\nFuentes: {', '.join(sources)}'
+words = response.split()
+for i in range(0, len(words), 5):
+chunk = ' '.join(words[i:i + 5]) + ' '
+audio_data = None
+if self.tts:
+try:
+audio_data = self.tts.speak(chunk)
+except Exception as e:
+print(f'Error al procesar audio con TTS: {str(e)}')
+yield {'chunk': chunk, 'audio': audio_data}
+if i + 5 >= self.max_words_response:
+break
+else:
+words = []
+for chunk in self.chain.stream({'query': query, 'context': ''}):
+content = chunk.content
+chunk_words = content.split()
+words.extend(chunk_words)
+for i in range(0, len(chunk_words), 5):
+chunk_text = ' '.join(chunk_words[i:i + 5]) + ' '
+audio_data = None
+if self.tts:
+try:
+audio_data = self.tts.speak(chunk_text)
+except Exception as e:
+print(f'Error al procesar audio con TTS: {str(e)}')
+yield {'chunk': chunk_text, 'audio': audio_data}
+if len(words) >= self.max_words_response:
+break
+except Exception as e:
+print(f'Error generando stream: {str(e)}')
+yield {'response': self.must_say_no}
+def add_agent(name, backend=DEFAULT_BACKEND, model=DEFAULT_MODEL, system_prompt=DEFAULT_SYSTEM_PROMPT, forbidden_topics='', must_say_no='No sé.', verbosity_level=1, require_citation=True, max_words_response=200, language='es-MX', extra_data='{}', allowed_topics=''):
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
+cursor.execute('\n    INSERT OR REPLACE INTO agents (name, backend, model, system_prompt, forbidden_topics, must_say_no, verbosity_level, require_citation, max_words_response, language, extra_data, allowed_topics)\n    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n    ', (name, backend, model, system_prompt, forbidden_topics, must_say_no, verbosity_level, require_citation, max_words_response, language, extra_data, allowed_topics))
+conn.commit()
+conn.close()
+def add_knowledge(agent_name, fact, source=''):
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
+cursor.execute('INSERT INTO knowledge (agent_id, fact, source) VALUES ((SELECT id FROM agents WHERE name = ?), ?, ?)', (agent_name, fact, source))
+conn.commit()
+conn.close()
+
+### File: src\modules\tts_stt\stt.py
+import speech_recognition as sr
+class STT:
+def __init__(self):
+self.recognizer = sr.Recognizer()
+def listen(self):
+with sr.Microphone() as source:
+print('Listening...')
+audio = self.recognizer.listen(source)
+try:
+return self.recognizer.recognize_google(audio)
+except sr.UnknownValueError:
+return 'Could not understand audio'
+except sr.RequestError:
+return 'API unavailable'
+
+### File: src\modules\tts_stt\tts.py
+import json
+import logging
+import os
+import base64
+from elevenlabs import ElevenLabs, voices
+import sqlite3
+from config.settings import DB_PATH
+logging.basicConfig(level=logging.INFO)
+class TTS:
+def __init__(self, tts_backend='web_speech', tts_language='es-MX', tts_voice='male', tts_api_key='', agent_name=None):
+self.tts_backend = tts_backend
+self.tts_language = tts_language
+self.tts_voice = tts_voice
+self.tts_api_key = tts_api_key or os.getenv('ELEVENLABS_API_KEY', '')
+self.agent_name = agent_name
+self.engine = None
+if not self.tts_api_key and self.agent_name:
+self.load_api_key_from_db()
+logging.info(f'TTS inicializando con backend={self.tts_backend}, api_key={self.tts_api_key}, voice={self.tts_voice}')
+self.init_engine()
+def load_api_key_from_db(self):
+try:
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
+cursor.execute('SELECT extra_data FROM agents WHERE name = ?', (self.agent_name,))
+result = cursor.fetchone()
+conn.close()
+if result and result[0]:
+extra_data = json.loads(result[0])
+self.tts_api_key = extra_data.get('tts_api_key', '')
+self.tts_backend = extra_data.get('tts_backend', self.tts_backend)
+self.tts_language = extra_data.get('tts_language', self.tts_language)
+self.tts_voice = extra_data.get('tts_voice', self.tts_voice)
+logging.info(f'Configuración TTS cargada desde la base de datos para agente {self.agent_name}: backend={self.tts_backend}, api_key={self.tts_api_key}')
+else:
+logging.warning(f'No se encontró configuración para agente {self.agent_name} en la base de datos.')
+except Exception as e:
+logging.error(f'Error al leer configuración TTS desde la base de datos: {str(e)}')
+def init_engine(self):
+if self.tts_backend == 'web_speech':
+logging.info('Backend web_speech seleccionado, TTS manejado por el frontend.')
+self.engine = None
+elif self.tts_backend == 'elevenlabs':
+if not self.tts_api_key:
+raise ValueError('API key de ElevenLabs requerida para este backend.')
+self.engine = ElevenLabs(api_key=self.tts_api_key)
+available_voices = voices(client=self.engine)
+voice_ids = [voice.name for voice in available_voices]
+if self.tts_voice not in voice_ids:
+logging.warning(f'Voz {self.tts_voice} no encontrada. Usando voz por defecto.')
+self.tts_voice = voice_ids[0]
+logging.info(f'Backend ElevenLabs inicializado con voz {self.tts_voice}')
+else:
+raise ValueError(f'Backend TTS no soportado: {self.tts_backend}')
+def speak(self, text, return_audio=True):
+if not text:
+logging.warning('No se proporcionó texto para reproducir.')
+return None
+logging.info(f'Procesando texto con backend {self.tts_backend} en {self.tts_language}: {text}')
+if self.tts_backend == 'web_speech':
+return {'text': text, 'backend': 'web_speech', 'language': self.tts_language, 'voice': self.tts_voice}
+elif self.tts_backend == 'elevenlabs':
+try:
+audio = self.engine.generate(text=text, voice=self.tts_voice, model='eleven_multilingual_v2', output_format='mp3')
+if return_audio:
+audio_base64 = base64.b64encode(audio).decode('utf-8')
+return {'audio': audio_base64, 'backend': 'elevenlabs', 'mime_type': 'audio/mp3'}
+return None
+except Exception as e:
+logging.error(f'Error al generar audio con ElevenLabs: {str(e)}')
+return None
+

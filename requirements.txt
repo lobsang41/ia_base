@@ -1,0 +1,30 @@
+# Core dependencies
+
+flask
+pyttsx3  # For TTS (lightweight, offline, works on Linux)
+speechrecognition  # For STT (pair with pyttsx3)
+pyaudio  # For microphone access (required for STT)
+opencv-python  # For camera
+pyserial  # For Arduino
+python-dotenv  # For config
+
+# Optional: AI integration
+groq  # Example AI API (replace with your choice)
+
+# WebSockets for real-time chat
+flask-socketio
+
+# Agentes y RAG
+langchain
+langchain-community  # Para integraciones comunitarias
+langchain-openai     # Para OpenAI API
+langchain-groq
+groq                 # Para Grok API (xAI)
+ollama               # Para modelos offline locales
+faiss-cpu            # Para base de conocimiento vectorial (simple y offline)
+sentence-transformers  # Para embeddings en RAG
+
+# Opcional: para UI avanzada en chat
+streamlit            # Si quieres una UI alternativa, pero mantén Flask por ahora
+
+elevenlabs  # Para TTS externo
