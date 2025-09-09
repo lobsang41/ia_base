@@ -84,8 +84,11 @@
         <div class="mt-6 bg-white p-4 rounded-lg shadow">
             <h2 class="text-xl font-semibold mb-4">Agregar Conocimiento</h2>
             <form id="add-knowledge-form" class="space-y-4">
-                <input type="text" id="knowledge-agent" placeholder="Nombre del Agente" required class="w-full p-2 border border-gray-300 rounded-md">
-                <textarea id="knowledge-fact" placeholder="Hecho" required class="w-full p-2 border border-gray-300 rounded-md"></textarea>
+                <label for="knowledge-agent" class="block text-sm font-medium text-gray-700">Selecciona Agente:</label>
+                <select id="knowledge-agent" required class="w-full p-2 border border-gray-300 rounded-md">
+                    <option value="">Selecciona un agente</option>
+                </select>
+                <textarea id="knowledge-fact" placeholder="Hecho o información a agregar" required class="w-full p-2 border border-gray-300 rounded-md h-24"></textarea>
                 <input type="text" id="knowledge-source" placeholder="Fuente (opcional)" class="w-full p-2 border border-gray-300 rounded-md">
                 <button type="submit" class="bg-green-500 text-white p-2 rounded-md hover:bg-green-600">Agregar Conocimiento</button>
             </form>

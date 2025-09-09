@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, Response
-from modules.ai.agent import AI_Agent, add_agent, add_knowledge
+from modules.ai.agent import AI_Agent, add_agent, add_knowledge, list_agents as get_all_agents, list_knowledge, update_knowledge, delete_knowledge, get_agent_stats
 from modules.tts_stt.stt import STT
 from config.settings import DEFAULT_AGENT_NAME, DB_PATH
 import json
@@ -125,13 +125,63 @@ def register_routes(app):
     def list_agents():
         """Devuelve una lista de agentes disponibles."""
         try:
-            conn = sqlite3.connect(DB_PATH)
-            cursor = conn.cursor()
-            cursor.execute('SELECT name FROM agents')
-            agents = [row[0] for row in cursor.fetchall()]
-            conn.close()
+            agents = get_all_agents()
             logging.debug(f'Agentes encontrados: {agents}')
             return jsonify({'agents': agents})
         except Exception as e:
             logging.error(f'Error en list_agents: {str(e)}')
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/list_knowledge/<agent_name>', methods=['GET'])
+    def list_knowledge_route(agent_name):
+        """Lista todo el conocimiento de un agente específico."""
+        try:
+            knowledge = list_knowledge(agent_name)
+            return jsonify({'knowledge': knowledge, 'agent_name': agent_name})
+        except Exception as e:
+            logging.error(f'Error en list_knowledge: {str(e)}')
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/update_knowledge', methods=['PUT'])
+    def update_knowledge_route():
+        """Actualiza un hecho específico en la base de conocimiento."""
+        data = request.json
+        try:
+            success = update_knowledge(
+                knowledge_id=data.get('id'),
+                new_fact=data.get('fact', ''),
+                new_source=data.get('source', '')
+            )
+            if success:
+                return jsonify({'status': 'Conocimiento actualizado exitosamente'})
+            else:
+                return jsonify({'error': 'No se encontró el conocimiento especificado'}), 404
+        except Exception as e:
+            logging.error(f'Error en update_knowledge: {str(e)}')
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/delete_knowledge/<int:knowledge_id>', methods=['DELETE'])
+    def delete_knowledge_route(knowledge_id):
+        """Elimina un hecho específico de la base de conocimiento."""
+        try:
+            success = delete_knowledge(knowledge_id)
+            if success:
+                return jsonify({'status': 'Conocimiento eliminado exitosamente'})
+            else:
+                return jsonify({'error': 'No se encontró el conocimiento especificado'}), 404
+        except Exception as e:
+            logging.error(f'Error en delete_knowledge: {str(e)}')
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/agent_stats/<agent_name>', methods=['GET'])
+    def agent_stats_route(agent_name):
+        """Obtiene estadísticas detalladas de un agente."""
+        try:
+            stats = get_agent_stats(agent_name)
+            if stats:
+                return jsonify({'stats': stats})
+            else:
+                return jsonify({'error': 'Agente no encontrado'}), 404
+        except Exception as e:
+            logging.error(f'Error en agent_stats: {str(e)}')
             return jsonify({'error': str(e)}), 500

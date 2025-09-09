@@ -12,7 +12,7 @@ DEFAULT_SYSTEM_PROMPT = """
 Eres un asistente útil. Sigue las reglas del agente especificadas en la base de datos.
 """
 DEFAULT_BACKEND = 'ollama'
-DEFAULT_MODEL = 'phi3:mini'
+DEFAULT_MODEL = 'llama2:7b-chat' #'phi3:mini'
 DEFAULT_MAX_WORDS_RESPONSE =1000
 DEFAULT_LANGUAGE = 'es-MX'
 DEFAULT_EXTRA_DATA = '{"tts_backend": "web_speech", "tts_language": "es-MX", "tts_voice": "male", "tts_api_key": ""}'
